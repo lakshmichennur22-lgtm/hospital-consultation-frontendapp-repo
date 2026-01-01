@@ -5,12 +5,8 @@ locals {
   # Full name (ECS, tags, etc.)
   name_prefix = "${var.project}-${var.application}-${var.environment}-${var.location_short}"
 
-  # Short name (ALB, SG, IAM, max 32 chars)
-  short_prefix = substr(
-    "${var.project}-${var.application}-${var.environment}",
-    0,
-    20
-  )
+  # Short name (for ALB, SG, IAM, max 20 chars)
+  short_prefix = substr("${var.project}-${var.application}-${var.environment}", 0, 20)
 
   tags = {
     project     = var.project
@@ -177,7 +173,7 @@ resource "aws_lb" "alb" {
 # TARGET GROUP
 ########################################
 resource "aws_lb_target_group" "frontend_tg" {
-  name_prefix = "${local.short_prefix}-fe"
+  name_prefix = "fe-tg"  # max 6 chars
   port        = 3000
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
@@ -218,14 +214,10 @@ resource "aws_iam_role" "ecs_task_role" {
 resource "aws_iam_role_policy_attachment" "ecs_exec" {
   role       = aws_iam_role.ecs_task_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
-
-  depends_on = [
-    aws_iam_role.ecs_task_role
-  ]
 }
 
 ########################################
-# FRONTEND ECS TASK + SERVICE
+# FRONTEND TASK + SERVICE
 ########################################
 resource "aws_ecs_task_definition" "frontend" {
   family                   = "${local.name_prefix}-frontend"
@@ -235,19 +227,15 @@ resource "aws_ecs_task_definition" "frontend" {
   memory                   = 512
   execution_role_arn       = aws_iam_role.ecs_task_role.arn
 
-  container_definitions = jsonencode([
-    {
-      name      = "frontend"
-      image     = var.frontend_image
-      essential = true
-      portMappings = [
-        {
-          containerPort = 3000
-          protocol      = "tcp"
-        }
-      ]
-    }
-  ])
+  container_definitions = jsonencode([{
+    name      = "frontend"
+    image     = var.frontend_image
+    essential = true
+    portMappings = [{
+      containerPort = 3000
+      protocol      = "tcp"
+    }]
+  }])
 }
 
 resource "aws_ecs_service" "frontend" {
@@ -271,7 +259,7 @@ resource "aws_ecs_service" "frontend" {
 }
 
 ########################################
-# BACKEND ECS TASK + SERVICE
+# BACKEND TASK + SERVICE
 ########################################
 resource "aws_ecs_task_definition" "backend" {
   family                   = "${local.name_prefix}-backend"
@@ -281,19 +269,15 @@ resource "aws_ecs_task_definition" "backend" {
   memory                   = 512
   execution_role_arn       = aws_iam_role.ecs_task_role.arn
 
-  container_definitions = jsonencode([
-    {
-      name      = "backend"
-      image     = var.backend_image
-      essential = true
-      portMappings = [
-        {
-          containerPort = 8080
-          protocol      = "tcp"
-        }
-      ]
-    }
-  ])
+  container_definitions = jsonencode([{
+    name      = "backend"
+    image     = var.backend_image
+    essential = true
+    portMappings = [{
+      containerPort = 8080
+      protocol      = "tcp"
+    }]
+  }])
 }
 
 resource "aws_ecs_service" "backend" {
