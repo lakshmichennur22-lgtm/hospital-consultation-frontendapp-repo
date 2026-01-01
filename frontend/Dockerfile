@@ -1,26 +1,34 @@
-# =========================
-# Stage 1: Build the app
-# =========================
-FROM maven:3.9.9-eclipse-temurin-17 AS builder
+# ---------- Build Stage ----------
+FROM node:18-alpine AS build
+WORKDIR /frontend
 
-WORKDIR /app
+COPY package*.json ./
+RUN npm install
 
-# Copy pom first to leverage Docker cache
-COPY pom.xml .
-COPY src ./src
+COPY . .
+RUN npm run build
 
-RUN mvn clean package -DskipTests
 
-# =========================
-# Stage 2: Runtime image
-# =========================
-FROM eclipse-temurin:17-jre-alpine
+# ---------- Runtime Stage ----------
+FROM nginx:alpine
 
-WORKDIR /app
+# Remove default nginx site
+RUN rm -rf /etc/nginx/conf.d/*
 
-# Copy jar from builder stage
-COPY --from=builder /app/target/*.jar app.jar
+# Nginx config on port 3000
+RUN printf "server {\n\
+    listen 3000;\n\
+    server_name localhost;\n\
+\n\
+    location / {\n\
+        root   /usr/share/nginx/html;\n\
+        try_files \$uri /index.html;\n\
+        index  index.html;\n\
+    }\n\
+}\n" > /etc/nginx/conf.d/default.conf
 
-EXPOSE 8080
+# Copy build output (FIXED PATH)
+COPY --from=build /frontend/build /usr/share/nginx/html
 
-ENTRYPOINT ["java","-jar","app.jar"]
+EXPOSE 3000
+CMD ["nginx", "-g", "daemon off;"]
