@@ -2,10 +2,10 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION = "us-east-1"
+        AWS_REGION     = "us-east-1"
         AWS_ACCOUNT_ID = "997948075617"
-        ECR_REPO = "hospital_portal_backend_repo"
-        IMAGE_TAG = "latest"
+        ECR_REPO       = "hospital-portal-backend"
+        IMAGE_TAG      = "${BUILD_NUMBER}"
     }
 
     stages {
@@ -16,25 +16,42 @@ pipeline {
             }
         }
 
-
-        stage('AWS Login to ECR') {
+        stage('Login to AWS ECR') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding',
                                   credentialsId: 'Adithya']]) {
                     sh '''
                     aws ecr get-login-password --region $AWS_REGION \
-                    | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+                    | docker login --username AWS --password-stdin \
+                    $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
                     '''
                 }
             }
         }
 
-        stage('Docker Build') {
+        stage('Ensure ECR Repository Exists') {
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding',
+                                  credentialsId: 'Adithya']]) {
+                    sh '''
+                    aws ecr describe-repositories \
+                      --repository-names $ECR_REPO \
+                      --region $AWS_REGION || \
+                    aws ecr create-repository \
+                      --repository-name $ECR_REPO \
+                      --region $AWS_REGION
+                    '''
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
             steps {
                 sh '''
                 cd backend/calculator
-                docker build -t $ECR_REPO .
-                docker tag $ECR_REPO:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:$IMAGE_TAG
+                docker build -t $ECR_REPO:$IMAGE_TAG .
+                docker tag $ECR_REPO:$IMAGE_TAG \
+                  $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:$IMAGE_TAG
                 '''
             }
         }
@@ -42,7 +59,8 @@ pipeline {
         stage('Push Image to ECR') {
             steps {
                 sh '''
-                docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:$IMAGE_TAG
+                docker push \
+                $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:$IMAGE_TAG
                 '''
             }
         }
@@ -50,10 +68,13 @@ pipeline {
 
     post {
         success {
-            echo "🚀 Frontend Docker image pushed successfully!"
+            echo "🚀 Backend Docker image pushed to ECR successfully!"
         }
         failure {
-            echo "❌ Build Failed!"
+            echo "❌ Pipeline failed!"
+        }
+        always {
+            sh 'docker system prune -af || true'
         }
     }
 }
