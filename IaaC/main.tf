@@ -2,10 +2,10 @@
 # LOCALS
 ########################################
 locals {
-  # Full name (for ECS, tags, etc.)
+  # Full name (ECS, tags, etc.)
   name_prefix = "${var.project}-${var.application}-${var.environment}-${var.location_short}"
 
-  # Short name (for ALB, TG, SG, IAM — max 32 chars)
+  # Short name (ALB, SG, IAM)
   short_prefix = substr(
     "${var.project}-${var.application}-${var.environment}",
     0,
@@ -49,6 +49,7 @@ resource "aws_subnet" "public" {
   cidr_block              = cidrsubnet("10.0.0.0/16", 4, count.index)
   availability_zone       = data.aws_availability_zones.available.names[count.index]
   map_public_ip_on_launch = true
+
   tags = merge(local.tags, {
     Name = "${local.name_prefix}-public-${count.index}"
   })
@@ -59,6 +60,7 @@ resource "aws_subnet" "private" {
   vpc_id            = aws_vpc.main.id
   cidr_block        = cidrsubnet("10.0.0.0/16", 4, count.index + 4)
   availability_zone = data.aws_availability_zones.available.names[count.index]
+
   tags = merge(local.tags, {
     Name = "${local.name_prefix}-private-${count.index}"
   })
@@ -171,8 +173,11 @@ resource "aws_lb" "alb" {
   subnets            = aws_subnet.public[*].id
 }
 
+########################################
+# TARGET GROUP (FIXED)
+########################################
 resource "aws_lb_target_group" "frontend_tg" {
-  name = "${local.short_prefix}-fe-"
+  name_prefix = "fe"
   port        = 3000
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
