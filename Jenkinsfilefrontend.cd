@@ -4,8 +4,7 @@ pipeline {
     environment {
         AWS_REGION         = "us-east-1"
         AWS_DEFAULT_REGION = "us-east-1"
-        CLUSTER_NAME       = "h
-hospital-p-ecs"
+        CLUSTER_NAME       = "hospital-p-ecs"
         SERVICE_NAME       = "hospital-p-frontend"
     }
 
