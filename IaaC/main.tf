@@ -2,15 +2,8 @@
 # LOCALS
 ########################################
 locals {
-  # Full name (ECS, tags, etc.)
-  name_prefix = "${var.project}-${var.application}-${var.environment}-${var.location_short}"
-
-  # Short name (ALB, SG, IAM)
-  short_prefix = substr(
-    "${var.project}-${var.application}-${var.environment}",
-    0,
-    20
-  )
+  name_prefix  = "${var.project}-${var.application}-${var.environment}-${var.location_short}"
+  short_prefix = substr("${var.project}-${var.application}-${var.environment}", 0, 20)
 
   tags = {
     project     = var.project
@@ -163,7 +156,7 @@ resource "aws_security_group" "backend_sg" {
 }
 
 ########################################
-# ALB
+# ALB + TARGET GROUP
 ########################################
 resource "aws_lb" "alb" {
   name               = "${local.short_prefix}-alb"
@@ -173,9 +166,6 @@ resource "aws_lb" "alb" {
   subnets            = aws_subnet.public[*].id
 }
 
-########################################
-# TARGET GROUP (FIXED)
-########################################
 resource "aws_lb_target_group" "frontend_tg" {
   name_prefix = "fe"
   port        = 3000
@@ -215,7 +205,7 @@ resource "aws_iam_role" "ecs_task_role" {
   })
 }
 
-resource "aws_iam_role_policy_attachment" "ecs_ecr" {
+resource "aws_iam_role_policy_attachment" "ecs_exec" {
   role       = aws_iam_role.ecs_task_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
@@ -227,21 +217,16 @@ resource "aws_ecs_task_definition" "frontend" {
   family                   = "${local.name_prefix}-frontend"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  cpu                      = 256
-  memory                   = 512
-  execution_role_arn       = aws_iam_role.ecs_task_role.arn
+  cpu    = 256
+  memory = 512
+  execution_role_arn = aws_iam_role.ecs_task_role.arn
 
-  container_definitions = jsonencode([
-    {
-      name      = "frontend"
-      image     = var.frontend_image
-      essential = true
-      portMappings = [{
-        containerPort = 3000
-        protocol      = "tcp"
-      }]
-    }
-  ])
+  container_definitions = jsonencode([{
+    name  = "frontend"
+    image = var.frontend_image
+    essential = true
+    portMappings = [{ containerPort = 3000 }]
+  }])
 }
 
 resource "aws_ecs_service" "frontend" {
@@ -271,21 +256,16 @@ resource "aws_ecs_task_definition" "backend" {
   family                   = "${local.name_prefix}-backend"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  cpu                      = 256
-  memory                   = 512
-  execution_role_arn       = aws_iam_role.ecs_task_role.arn
+  cpu    = 256
+  memory = 512
+  execution_role_arn = aws_iam_role.ecs_task_role.arn
 
-  container_definitions = jsonencode([
-    {
-      name      = "backend"
-      image     = var.backend_image
-      essential = true
-      portMappings = [{
-        containerPort = 8080
-        protocol      = "tcp"
-      }]
-    }
-  ])
+  container_definitions = jsonencode([{
+    name  = "backend"
+    image = var.backend_image
+    essential = true
+    portMappings = [{ containerPort = 8080 }]
+  }])
 }
 
 resource "aws_ecs_service" "backend" {
@@ -299,4 +279,69 @@ resource "aws_ecs_service" "backend" {
     subnets         = aws_subnet.private[*].id
     security_groups = [aws_security_group.backend_sg.id]
   }
+}
+
+########################################
+# VPC ENDPOINTS (CRITICAL FOR ECR)
+########################################
+resource "aws_security_group" "vpce_sg" {
+  name   = "${local.short_prefix}-vpce-sg"
+  vpc_id = aws_vpc.main.id
+
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = [aws_vpc.main.cidr_block]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_vpc_endpoint" "ecr_api" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.${var.aws_region}.ecr.api"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.vpce_sg.id]
+  private_dns_enabled = true
+}
+
+resource "aws_vpc_endpoint" "ecr_dkr" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.${var.aws_region}.ecr.dkr"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.vpce_sg.id]
+  private_dns_enabled = true
+}
+
+resource "aws_vpc_endpoint" "logs" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.${var.aws_region}.logs"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.vpce_sg.id]
+  private_dns_enabled = true
+}
+
+resource "aws_vpc_endpoint" "sts" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.${var.aws_region}.sts"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.vpce_sg.id]
+  private_dns_enabled = true
+}
+
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id            = aws_vpc.main.id
+  service_name      = "com.amazonaws.${var.aws_region}.s3"
+  vpc_endpoint_type = "Gateway"
+  route_table_ids   = [aws_route_table.private.id]
 }
