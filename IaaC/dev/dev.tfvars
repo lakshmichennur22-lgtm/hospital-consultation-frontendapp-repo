@@ -1,0 +1,10 @@
+project     = "hospital"
+application = "portal"
+
+environment    = "dev"
+location       = "us-east-1"
+location_short = "use"
+aws_region = "us-east-1"
+blockcode = "ABCD1001"
+frontend_image = "997948075617.dkr.ecr.us-east-1.amazonaws.com/hospital_portal_frontend_repo"
+backend_image = "997948075617.dkr.ecr.us-east-1.amazonaws.com/hospital_portal_backend_repo"

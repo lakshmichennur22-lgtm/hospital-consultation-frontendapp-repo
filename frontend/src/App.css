@@ -1,0 +1,22 @@
+body {
+  background-color: #f8f9fa;
+}
+.navbar-brand {
+  font-weight: 700;
+}
+.container-custom {
+  max-width: 960px;
+}
+.card-patient {
+  transition: transform 0.15s ease-in-out;
+}
+.card-patient:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+}
+.footer {
+  margin-top: 40px;
+  padding: 20px 0;
+  text-align: center;
+  color: #6c757d;
+}
