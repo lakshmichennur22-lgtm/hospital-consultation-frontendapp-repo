@@ -172,7 +172,7 @@ resource "aws_lb" "alb" {
 }
 
 resource "aws_lb_target_group" "frontend_tg" {
-  name_prefix = "${local.short_prefix}-fe-"
+  name = "${local.short_prefix}-fe-"
   port        = 3000
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
