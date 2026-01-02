@@ -64,7 +64,10 @@ public class ConsultationController {
             }
         });
     }
-
+    @GetMapping("/health")
+    public String health() {
+        return "OK";
+    }
     // ✅ POST new consultation
     @PostMapping
     public Map<String, String> bookConsultation(@RequestBody Map<String, String> consultation) {
