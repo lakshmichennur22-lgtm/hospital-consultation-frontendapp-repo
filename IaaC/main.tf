@@ -414,7 +414,7 @@ resource "aws_db_instance" "mysql" {
   engine            = "mysql"
   engine_version    = "8.0"
   instance_class    = "db.t3.micro"
-  allocated_storage = 20
+  allocated_storage = 5
   db_name           = "mydatabase"
   username          = "admin"
   password          = "YourStrongPass123"
