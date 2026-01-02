@@ -424,7 +424,7 @@ resource "aws_db_instance" "mysql" {
   db_subnet_group_name   = aws_db_subnet_group.db_subnet.name
   publicly_accessible    = false
   multi_az               = false
-  backup_retention_period = 7
+  backup_retention_period = 1
   auto_minor_version_upgrade = true
 
   tags = merge(local.tags, { Name = "${local.name_prefix}-mysql" })
