@@ -1,5 +1,5 @@
-project     = "hospital"
-application = "portal"
+project     = "hos"
+application = "ptl"
 
 environment    = "dev"
 location       = "us-east-1"
